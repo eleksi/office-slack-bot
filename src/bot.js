@@ -11,6 +11,7 @@ const EmailSender = require('./emailSender');
 const SlackChannelStats = require('./slackChannelStats');
 const WebScraper = require('./webScraper');
 const TranslateService = require('./googleTranslateService');
+const MongoClient = require('mongodb').MongoClient;
 
 const api = new SensorApi(Config.apiUserName, Config.apiPassword, Config.apiUrl, Config.sensors);
 const restaurantsService = new GooglePlacesService(Config.locationApiKey, Config.office, 'restaurant');
@@ -27,6 +28,8 @@ const webScraper = new WebScraper(Config.webScraperOptions);
 const translator = new TranslateService(Config.translator.keyPath);
 
 const { removeEmojis, returnEmojis } = require('../helpers/emojiHelper');
+const dbConfig = require(Config.translator.dbStringPath);
+
 // Bot returns object literal instead of class, so we can have private functions
 const bot = () => {
   const anyone = ['people', 'anyone', 'any'];
@@ -202,9 +205,79 @@ const bot = () => {
     return outputFormat(text);
   };
 
+  const toggleTranslate = async caller => {
+    // Database errors left unhandled, bot's slack admin will get notified from them in slack DM
+    // TODO: Add proper error handling
+
+    const uri = dbConfig.connectString;
+    const client = await new MongoClient(uri, { useNewUrlParser: true }).connect();
+    const db = client.db('translate_channels');
+    const collection = await db.collection('translate_channels');
+
+    const channelId = caller.channel;
+    const searchQuery = { channelId: channelId };
+
+    let findConfig = async () => {
+      const result = await collection.findOne(searchQuery);
+      if (!result) return null;
+      return result.translationEnabled;
+    };
+
+    let addConfig = async () => {
+      const newConfig = { channelId: channelId, translationEnabled: true };
+      const result = await collection.insertOne(newConfig);
+      if (!result.insertedId) return false;
+      return true;
+    };
+
+    let updateConfig = async wasEnabled => {
+      const newConfig = { channelId: channelId, translationEnabled: !wasEnabled };
+      const result = await collection.updateOne(searchQuery, { $set: { ...newConfig } });
+      if (result.modifiedCount !== 1) return undefined;
+      return newConfig.translationEnabled;
+    };
+
+    let translationEnabled = await findConfig();
+    let newEnabled;
+
+    if (translationEnabled === null) {
+      newEnabled = await addConfig();
+    } else {
+      newEnabled = await updateConfig(translationEnabled);
+    }
+
+    client.close();
+
+    if (newEnabled !== undefined) {
+      console.log('Config updated for channel ' + channelId + ', translationEnabled is now ' + newEnabled);
+      return Promise.resolve(newEnabled ? 'translating' : 'translate off');
+    } else {
+      console.log('Translation config update was not successful...');
+    }
+  };
+
   const translateText = async (channel, text) => {
-    const channelConfig = Config.translator.channels[channel];
-    if (!channelConfig || !channelConfig.enabled) return '';
+    // Database errors left unhandled, bot's slack admin will get notified from them in slack DM
+    // TODO: Add proper error handling
+
+    const uri = dbConfig.connectString;
+    const client = await new MongoClient(uri, { useNewUrlParser: true }).connect();
+
+    var translationEnabled = false;
+
+    const db = client.db('translate_channels');
+
+    let findConfig = async () => {
+      const result = await db.collection('translate_channels').findOne({ channelId: channel });
+      if (!result) return false;
+      return result.translationEnabled;
+    };
+
+    translationEnabled = await findConfig();
+
+    client.close();
+
+    if (!translationEnabled) return '';
 
     // This is emoji. TODO: Regex
     if (text.startsWith(':') && text.endsWith(':')) return '';
@@ -294,15 +367,7 @@ const bot = () => {
         return getScraperText(args);
       }
       if (translate.some(e => e === command)) {
-        const channelConfigs = Config.translator.channels;
-        const channelId = caller.channel;
-
-        const channelConfig = channelConfigs[channelId] || { enabled: false };
-
-        channelConfig.enabled = !channelConfig.enabled;
-
-        channelConfigs[channelId] = channelConfig;
-        return Promise.resolve(channelConfig.enabled ? 'translating' : 'translate off');
+        return toggleTranslate(caller);
       }
       if (command === 'help') {
         const help = `
