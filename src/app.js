@@ -25,10 +25,10 @@ controller.on(['direct_message', 'direct_mention'], (bot, message) => {
 
         if (resp.channel) bot.say({ text: resp.text, channel: resp.channel });
         else if (resp.confirm) handleConfirmConversation(bot, message.user, resp);
-        else bot.reply(message, resp);
+        else bot.replyInThread(message, resp);
       });
     } else {
-      bot.reply(message, 'No rights to chat with Bot');
+      bot.replyInThread(message, 'No rights to chat with Bot');
     }
   });
 });
@@ -36,7 +36,7 @@ controller.on(['direct_message', 'direct_mention'], (bot, message) => {
 controller.hears(['.'], ['ambient'], async (bot, msg) => {
   const response = await myBot.translate(msg.channel, msg.text);
   if (response) {
-    bot.reply(msg, response);
+    bot.replyInThread(msg, response);
   }
 });
 
