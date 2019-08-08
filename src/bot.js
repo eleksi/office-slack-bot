@@ -26,6 +26,7 @@ const slackStats = new SlackChannelStats(Config.botToken);
 const webScraper = new WebScraper(Config.webScraperOptions);
 const translator = new TranslateService(Config.translator.keyPath);
 
+const { removeEmojis, returnEmojis } = require('../helpers/emojiHelper');
 // Bot returns object literal instead of class, so we can have private functions
 const bot = () => {
   const anyone = ['people', 'anyone', 'any'];
@@ -218,12 +219,14 @@ const bot = () => {
           Config.translator.maxCharacters && text.length > Config.translator.maxCharacters
             ? `${text.substring(0, Config.translator.maxCharacters)}...`
             : text;
-        const translation = await translator.translateText(toTranslate, Config.translator.language);
-        // Fix emojis
-        const fixedText = translation[0].replace(/\s(?!(?:[^:]*:[^:]*:)*[^:]*$)/gm, '');
 
-        if (fixedText !== toTranslate)
-          return `${Config.translator.prefix}${fixedText} (${translator.getPriceCents(text)})`;
+        const { msgWithoutEmojis, emojis } = removeEmojis(toTranslate);
+        const translation = await translator.translateText(msgWithoutEmojis, Config.translator.language);
+
+        // Fix emojis
+        const fixedText = returnEmojis(translation[0], emojis);
+
+        if (fixedText !== toTranslate) return `${Config.translator.prefix}${fixedText}`;
       }
     } catch (error) {
       notifyFunc(`Translate failed ${error.message || error}`);
