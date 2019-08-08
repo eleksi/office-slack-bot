@@ -21,7 +21,7 @@ Slack bot for office use.
 ## Get Started
 
 1) Create new configuration file (_src/configuration.js_)
-    * Copy template from configuration file [section](https://github.com/ttu/office-slack-bot#configuration-file)
+    * Copy template from configuration file [section](https://github.com/eleksi/office-slack-bot#configuration-file)
 1) Create a new App for your Slack workspace
     * Add App's token to configuration's `botToken`
 1) Run bot e.g. with [forever](https://github.com/foreverjs/forever), supervisord etc.
@@ -86,13 +86,16 @@ Automatically translate the conversation to selected language.
 
 Requirements:
 * [Get API Key file](https://cloud.google.com/translate/docs/quickstart)
+* [MongoDB Database](https://github.com/eleksi/office-slack-bot#mongodb-database)
 
 ```js
 translator: {
     keyPath: '/home/user123/office-slack-bot/translate_secret.json',
+    dbStringPath: '/home/my-user/office-slack-bot/db_config.json',
     prefix: ':flag-england: ',
     language: 'en',            
-    maxCharacters: 1000,    
+    maxCharacters: 1000,
+    // Translated channels are no longer configured here, set up a database instead
     channels: {
         aaaaa: {
             enabled: true
@@ -105,6 +108,7 @@ translator: {
 ```
 
 Bot adds a channel to the channel list when `translate` command is issued from the channel.
+
 
 #### Send email
 
@@ -182,10 +186,12 @@ module.exports = {
   ],
   translator: {
     keyPath: '/home/my-user/office-slack-bot/translate_secret.json',
+    dbStringPath: '/home/my-user/office-slack-bot/db_config.json',
     prefix: ':flag-england: ',
     language: 'en',
     maxCharacters: 1000,
-    channels: {
+    // Translated channels are no longer configured here, set up a database instead
+    channels: { 
       AAAA: {
         enabled: true
       },
@@ -233,6 +239,32 @@ Br,
   }
 };
 ```
+
+## MongoDB Database
+
+MongoDB database needs to be set up. Free MongoDB hosting for example [mLab](https://mlab.com/) will do.
+
+1) Set up a cluster
+1) Create a new database and a collection. Bot expects both the database and the collection to be named `translate_channels`.
+1) Create a database user and whitelist your bot's IP address
+1) Get a connection string and insert it into your dbStringPath file e.g. :
+
+```
+{
+  "connectString": "mongodb+srv://<username>:<password>@<rest-of-connect-string>"
+}
+
+```
+
+## Deploying
+
+This readme will cover deploying the bot in [Google Cloud](https://cloud.google.com/) in a Docker container.
+
+1) Create a new project in Google Cloud
+1) Enable Container Registry for the Docker image
+1) Enable Compute Engine for running the image
+1) [Set up Container Registry](https://cloud.google.com/container-registry/docs/quickstart), build a docker image and push it to Container Registry
+1) Set up VM Instance (with Container Optimized OS) and use your Docker image as a Container image
 
 ## Tests
 
