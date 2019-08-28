@@ -6,11 +6,21 @@ const controller = Botkit.slackbot({
   debug: false
 });
 
-const botInstance = controller
-  .spawn({
-    token: Config.botToken
-  })
-  .startRTM();
+const botInstance = controller.spawn({
+  token: Config.botToken
+});
+
+function start_rtm() {
+  botInstance.startRTM(function(err, bot, payload) {
+    if (err) {
+      console.log('Failed to start RTM');
+      return setTimeout(start_rtm, 60000);
+    }
+    console.log('RTM started!');
+  });
+}
+
+start_rtm();
 
 const userConfig = {
   user: Config.slackAdminUserId
@@ -71,8 +81,7 @@ const handleConfirmConversation = (bot, user, confirmResponse) => {
 };
 
 controller.on('rtm_close', () => {
-  // Just exit. Forver or something similair will restart this
-  process.exit();
+  start_rtm();
 });
 
 myBot.setNotifyFunc(output => {
