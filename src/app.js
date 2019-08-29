@@ -7,7 +7,8 @@ const controller = Botkit.slackbot({
 });
 
 const botInstance = controller.spawn({
-  token: Config.botToken
+  token: Config.botToken,
+  retry: true
 });
 
 function start_rtm() {
@@ -81,7 +82,8 @@ const handleConfirmConversation = (bot, user, confirmResponse) => {
 };
 
 controller.on('rtm_close', () => {
-  start_rtm();
+  // Just exit. Forver or something similair will restart this
+  process.exit();
 });
 
 myBot.setNotifyFunc(output => {
